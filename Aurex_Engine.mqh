@@ -2785,5 +2785,5 @@ public:
       Panel();
    }
 };
-
+#endif
 // ==================== END OF FILE: Aurex_Engine_End.mqh ====================
