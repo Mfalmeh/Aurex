@@ -244,8 +244,28 @@ public:
             return true;
       }
 
-      // Unknown sessions do not authorize a trade.
-      return found ? false : false;
+      // Many brokers publish no session table for retail CFDs and crypto.
+      // The previous revision returned false on both branches here, which
+      // made the gate permanently closed and the EA permanently paused.
+      // A missing table means "unknown", not "closed": fall through to
+      // open and let the weekday mask and hour window decide. When a table
+      // does exist and no entry covers the current time, the session is
+      // genuinely shut and we return false.
+      if(!found)
+      {
+         static bool warned=false;
+
+         if(!warned)
+         {
+            Print("AUREX session_table_absent symbol=",symbol,
+                  " treating_as_open");
+            warned=true;
+         }
+
+         return true;
+      }
+
+      return false;
    }
 
    bool StopOrdersAllowed()
