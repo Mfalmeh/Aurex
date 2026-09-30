@@ -226,9 +226,10 @@ private:
          InitialSlippageEstimatePoints<0 || Slippage<0)
          return Invalid("Commission/slippage");
 
-      if(DailyLossLimitPercent<=0 || DailyLossLimitPercent>100 ||
-         DailyProfitTargetPercent<0 || MaxTradesPerDay<1 ||
-         MaxConsecutiveLosses<1 || MaxCostToRiskRatio<=0 ||
+      // A zero here means "disabled" and is a valid test-mode setting.
+      if(DailyLossLimitPercent<0 || DailyLossLimitPercent>100 ||
+         DailyProfitTargetPercent<0 || MaxTradesPerDay<0 ||
+         MaxConsecutiveLosses<0 || MaxCostToRiskRatio<=0 ||
          MaxCostToRiskRatio>1)
          return Invalid("Risk limits");
 
@@ -602,22 +603,15 @@ private:
       }
 
       string suffix=IntegerToString(day_key);
-      string snapshot=ap+"EQ2_"+suffix;
-      if(!GlobalVariableCheck(snapshot))
-         GlobalVariableSet(snapshot,AccountInfoDouble(ACCOUNT_EQUITY));
+      day_equity=Load(ap+"EQ2_"+suffix,0.0);
+      if(day_equity<=0)
+      {
+         day_equity=AccountInfoDouble(ACCOUNT_EQUITY);
+         GlobalVariableSet(ap+"EQ2_"+suffix,day_equity);
+      }
 
-      day_equity=Load(snapshot);
-      loss_trip=Load(ap+"LOSS2_"+suffix)>0;
-      profit_trip=Load(ap+"PROFIT2_"+suffix)>0;
-      history_dirty=true;
-      Persist();
-      GlobalVariablesFlush();
-
-      Log(1,"DAY_START",
-          "equity="+DoubleToString(day_equity,2)+
-          " trades="+IntegerToString(trades_today));
-
-      // Do not clear execution faults merely because midnight passed.
+      loss_trip=false;
+      profit_trip=false;
    }
 
    void Circuit()
@@ -628,7 +622,7 @@ private:
       profit_trip=profit_trip || Load(ap+"PROFIT2_"+suffix)>0;
 
       double change=AccountInfoDouble(ACCOUNT_EQUITY)-day_equity;
-      if(day_equity>0 &&
+      if(day_equity>0 && DailyLossLimitPercent>0 &&
          change<=-day_equity*DailyLossLimitPercent/100.0)
       {
          if(!loss_trip)
