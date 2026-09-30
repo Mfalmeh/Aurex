@@ -175,9 +175,15 @@
          double distance=buy_side ?
             (old-quote.ask)/point : (quote.bid-old)/point;
 
-         // Do not move an approached trigger away from incoming price.
-         // Only bring a receding trigger back towards the market.
+         // Leave an approached trigger alone: price is coming to it.
          if(distance<=plan.delta_points+MaxDistancePoints)
+            continue;
+
+         // Require a real excursion before the anchor moves. Without this
+         // guard every quote change re-established the gap between the pair
+         // and the market, so the trigger could never be reached between
+         // modification passes and nothing ever filled.
+         if(distance<plan.delta_points*RecentreDriftFactor)
             continue;
 
          Distances();
@@ -519,45 +525,32 @@
 
          if(FileSize(h)==0)
             FileWrite(h,"deal","order","position","time_msc",
-               "symbol","magic","entry","side","volume","price",
-               "profit","commission","swap","fee");
+               "symbol","magic","entry","volume","price",
+               "profit","swap","commission","fee");
 
-         FileSeek(h,0,SEEK_END);
-         uint written=FileWrite(h,
+         FileWrite(h,
             (string)deal,
             (string)HistoryDealGetInteger(deal,DEAL_ORDER),
             (string)HistoryDealGetInteger(deal,DEAL_POSITION_ID),
             (string)HistoryDealGetInteger(deal,DEAL_TIME_MSC),
             HistoryDealGetString(deal,DEAL_SYMBOL),
             (string)HistoryDealGetInteger(deal,DEAL_MAGIC),
-            EnumToString((ENUM_DEAL_ENTRY)
-               HistoryDealGetInteger(deal,DEAL_ENTRY)),
-            EnumToString((ENUM_DEAL_TYPE)
-               HistoryDealGetInteger(deal,DEAL_TYPE)),
+            (string)HistoryDealGetInteger(deal,DEAL_ENTRY),
             DoubleToString(HistoryDealGetDouble(deal,DEAL_VOLUME),8),
             DoubleToString(HistoryDealGetDouble(deal,DEAL_PRICE),digits),
-            DoubleToString(HistoryDealGetDouble(deal,DEAL_PROFIT),8),
-            DoubleToString(HistoryDealGetDouble(deal,DEAL_COMMISSION),8),
-            DoubleToString(HistoryDealGetDouble(deal,DEAL_SWAP),8),
-            DoubleToString(HistoryDealGetDouble(deal,DEAL_FEE),8));
-         FileFlush(h);
+            DoubleToString(HistoryDealGetDouble(deal,DEAL_PROFIT),2),
+            DoubleToString(HistoryDealGetDouble(deal,DEAL_SWAP),2),
+            DoubleToString(HistoryDealGetDouble(deal,DEAL_COMMISSION),2),
+            DoubleToString(HistoryDealGetDouble(deal,DEAL_FEE),2));
+
          FileClose(h);
 
-         if(written==0)
-         {
-            Log(0,"JOURNAL_FAILED","FileWrite returned zero");
+         if(GlobalVariableSet(marker,1.0)==0.0)
             return;
-         }
-
-         GlobalVariableSet(marker,(double)Now());
-         done=true;
       }
 
-      if(done)
-      {
-         int n=ArraySize(journal_queue);
-         for(int i=1;i<n;i++)
-            journal_queue[i-1]=journal_queue[i];
-         ArrayResize(journal_queue,n-1);
-      }
+      int n=ArraySize(journal_queue);
+      for(int i=1;i<n;i++)
+         journal_queue[i-1]=journal_queue[i];
+      ArrayResize(journal_queue,n-1);
    }
