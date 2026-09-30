@@ -482,7 +482,7 @@
          }
       }
 
-      if(losses>=MaxConsecutiveLosses)
+      if(MaxConsecutiveLosses>0 && losses>=MaxConsecutiveLosses)
          streak_trip=true;
 
       history_dirty=false;
