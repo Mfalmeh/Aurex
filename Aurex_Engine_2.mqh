@@ -356,12 +356,12 @@
          why="ATR outside configured bounds";
          return false;
       }
-      if(trades_today>=MaxTradesPerDay)
+      if(MaxTradesPerDay>0 && trades_today>=MaxTradesPerDay)
       {
          why="daily entry cap";
          return false;
       }
-      if(losses>=MaxConsecutiveLosses)
+      if(MaxConsecutiveLosses>0 && losses>=MaxConsecutiveLosses)
       {
          why="consecutive-loss cap";
          return false;
@@ -433,7 +433,7 @@
       r.type_filling=(action==TRADE_ACTION_PENDING ||
                       action==TRADE_ACTION_MODIFY) ?
                      ORDER_FILLING_RETURN : MarketFilling();
-      r.comment="AUREX110|"+comment;
+      r.comment="AUREX130|"+comment;
    }
 
    bool Accepted(const uint code)
@@ -553,36 +553,17 @@
       ResetLastError();
       ulong begin=GetMicrosecondCount();
       bool ok=OrderSend(r,result);
-      int error=GetLastError();
-
-      Log(2,"SEND",
-          "action="+EnumToString(r.action)+
-          " order="+(string)r.order+
-          " position="+(string)r.position+
-          " volume="+DoubleToString(r.volume,8)+
-          " price="+DoubleToString(r.price,digits)+
-          " sl="+DoubleToString(r.sl,digits)+
-          " tp="+DoubleToString(r.tp,digits)+
-          " retcode="+IntegerToString((int)result.retcode)+
-          " call_ms="+DoubleToString(
-             (double)(GetMicrosecondCount()-begin)/1000.0,2));
+      ulong spent=GetMicrosecondCount()-begin;
 
       if(!ok || !Accepted(result.retcode))
       {
-         if(result.retcode==TRADE_RETCODE_NO_CHANGES)
-            return true;
-
          Failure(result.retcode,
             "stage=send action="+EnumToString(r.action)+
-            " order="+(string)r.order+
-            " position="+(string)r.position+
-            " error="+IntegerToString(error)+
+            " error="+IntegerToString(GetLastError())+
             " comment="+result.comment,true);
          return false;
       }
 
-      // Acknowledgement is not proof that the local order/position book
-      // has completed every related transaction.
       settle_until=GetTickCount64()+(ulong)PairSettleMs;
       return true;
    }
